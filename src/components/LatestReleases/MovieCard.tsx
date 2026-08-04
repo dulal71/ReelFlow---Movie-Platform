@@ -85,14 +85,16 @@ function MovieCard({ movie }: MovieCardProps) {
       />
 
       {/* rating badge (default state) */}
-      <motion.div
-        className="absolute top-3 left-3 flex items-center gap-1 bg-black/60 backdrop-blur-sm text-yellow-400 text-xs font-bold px-2 py-1 rounded-full"
-        animate={{ opacity: hovered ? 0 : 1 }}
-        transition={{ duration: 0.35 }}
-      >
-        <FaStar className="text-[10px]" />
-        {movie.rating.toFixed(1)}
-      </motion.div>
+      {movie.rating !== undefined && (
+        <motion.div
+          className="absolute top-3 left-3 flex items-center gap-1 bg-black/60 backdrop-blur-sm text-yellow-400 text-xs font-bold px-2 py-1 rounded-full"
+          animate={{ opacity: hovered ? 0 : 1 }}
+          transition={{ duration: 0.35 }}
+        >
+          <FaStar className="text-[10px]" />
+          {movie.rating.toFixed(1)}
+        </motion.div>
+      )}
 
       {/* hover content */}
       <AnimatePresence>
@@ -130,7 +132,8 @@ function MovieCard({ movie }: MovieCardProps) {
                 {movie.title}
               </h3>
               <p className="text-gray-300 text-xs mt-1">
-                {movie.year} · {movie.language}
+                {movie.year}
+                {movie.language ? ` · ${movie.language}` : ''}
               </p>
               <p className="text-red-500 text-xs font-semibold mt-0.5 uppercase tracking-wider">
                 {movie.genre}

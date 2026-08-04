@@ -4,9 +4,9 @@ export interface ReleaseMovie {
   posterImage: string
   hoverImage: string
   year: string
-  language: string
+  language?: string
   genre: string
-  rating: number
+  rating?: number
 }
 
 const tmdb = (size: 'w500' | 'w780', path: string) =>

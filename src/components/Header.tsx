@@ -1,8 +1,11 @@
 'use client'
 
 import React, { useEffect, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { FaPlay, FaChevronDown, FaSearch, FaUser, FaBars, FaTimes } from "react-icons/fa";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { FaPlay, FaChevronDown, FaSearch, FaUser, FaBars, FaTimes, FaRegBell } from "react-icons/fa";
+import AuthModal from "./Auth/AuthModal";
+import { useSession } from "../services/auth";
 
 interface NavbarProps {
   query: string;
@@ -22,13 +25,83 @@ const NAV_LINKS: { label: string; to: string; hasDropdown?: boolean }[] = [
   { label: "Pages", to: "/pages", hasDropdown: true },
 ];
 
+interface NotificationItem {
+  id: number;
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+}
+
+const INITIAL_NOTIFICATIONS: NotificationItem[] = [
+  {
+    id: 1,
+    title: "New Release",
+    message: "Inception is now available to stream.",
+    time: "2 min ago",
+    read: false,
+  },
+  {
+    id: 2,
+    title: "Watchlist Updated",
+    message: "Interstellar was added to your watchlist.",
+    time: "1 hr ago",
+    read: false,
+  },
+  {
+    id: 3,
+    title: "Welcome to ReelFlow",
+    message: "Your subscription is now active. Enjoy streaming!",
+    time: "1 day ago",
+    read: false,
+  },
+  {
+    id: 4,
+    title: "New Season",
+    message: "The Dark Knight trilogy is back in 4K.",
+    time: "3 days ago",
+    read: true,
+  },
+];
+
 const Navbar= ({query,setQuery,onSubmit}:NavbarProps ) => {
 
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [notifications, setNotifications] =
+    useState<NotificationItem[]>(INITIAL_NOTIFICATIONS);
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const { data: session } = useSession();
   const isHome = pathname === "/";
   const solid = !isHome || scrolled;
+  const isLoggedIn = !!session?.user;
+
+  const openAuth = (mode: "signin" | "signup") => {
+    setAuthMode(mode);
+    setAuthOpen(true);
+  };
+
+  const handleUserClick = () => {
+    if (isLoggedIn) {
+      navigate("/profile");
+    } else {
+      openAuth("signin");
+    }
+  };
+
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  const markRead = (id: number) =>
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
+    );
+
+  const markAllRead = () =>
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -37,9 +110,18 @@ const Navbar= ({query,setQuery,onSubmit}:NavbarProps ) => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setNotifOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   
 
   return (
+    <>
     <header
       className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${
         solid ? NAVBAR_BG : "bg-transparent"
@@ -155,13 +237,111 @@ const Navbar= ({query,setQuery,onSubmit}:NavbarProps ) => {
             </button>
           </form>
 
-          <Link
-            to="/profile"
+          {/* notifications */}
+          <div className="relative">
+            <button
+              onClick={() => setNotifOpen((prev) => !prev)}
+              aria-label="Notifications"
+              aria-expanded={notifOpen}
+              className="relative w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors shrink-0"
+            >
+              <FaRegBell className="text-base" />
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-red-600 text-[10px] font-bold text-white flex items-center justify-center border-2 border-black">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+
+            <AnimatePresence>
+              {notifOpen && (
+                <>
+                  <motion.div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setNotifOpen(false)}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25 }}
+                  />
+                  <motion.div
+                    className="absolute right-0 top-full mt-3 z-50 w-80 max-w-[calc(100vw-2rem)] rounded-xl bg-[#161616] border border-white/10 shadow-2xl shadow-black/60 overflow-hidden origin-top-right"
+                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                  >
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                    <span className="text-sm font-bold text-white">
+                      Notifications
+                    </span>
+                    {unreadCount > 0 && (
+                      <button
+                        onClick={markAllRead}
+                        className="text-[11px] text-red-500 hover:text-red-400 font-semibold transition-colors cursor-pointer"
+                      >
+                        Mark all as read
+                      </button>
+                    )}
+                  </div>
+
+                  <ul className="max-h-80 overflow-y-auto">
+                    {notifications.map((n) => (
+                      <li key={n.id}>
+                        <button
+                          onClick={() => markRead(n.id)}
+                          className={`w-full text-left px-4 py-3 flex gap-3 transition-colors cursor-pointer ${
+                            n.read
+                              ? "bg-transparent hover:bg-white/5"
+                              : "bg-white/5 hover:bg-white/10"
+                          }`}
+                        >
+                          <span
+                            className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${
+                              n.read ? "bg-transparent" : "bg-red-500"
+                            }`}
+                          />
+                          <span className="flex-1 min-w-0">
+                            <span
+                              className={`block text-sm truncate ${
+                                n.read ? "text-gray-400" : "text-white font-semibold"
+                              }`}
+                            >
+                              {n.title}
+                            </span>
+                            <span className="block text-xs text-gray-500 mt-0.5 leading-snug">
+                              {n.message}
+                            </span>
+                            <span className="block text-[11px] text-gray-600 mt-1">
+                              {n.time}
+                            </span>
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="border-t border-white/10 p-2">
+                    <button
+                      onClick={() => setNotifOpen(false)}
+                      className="w-full text-center text-xs font-bold text-white py-2 rounded-md hover:bg-white/5 transition-colors cursor-pointer"
+                    >
+                      View all notifications
+                    </button>
+                  </div>
+                </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button
+            onClick={handleUserClick}
             aria-label="Profile"
-            className="w-9 h-9 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center text-white transition-colors shrink-0"
+            className="w-9 h-9 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center text-white transition-colors shrink-0 cursor-pointer"
           >
             <FaUser className="text-sm" />
-          </Link>
+          </button>
 
           <Link
             to="/subscribe"
@@ -172,6 +352,13 @@ const Navbar= ({query,setQuery,onSubmit}:NavbarProps ) => {
         </div>
       </div>
     </header>
+
+    <AuthModal
+      open={authOpen}
+      onClose={() => setAuthOpen(false)}
+      initialMode={authMode}
+    />
+    </>
   );
 };
 
